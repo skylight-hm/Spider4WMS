@@ -52,61 +52,63 @@ def main(args):
             x_min = -height / 2 + feature_polygon.envelope.centroid.x
             edge_length = height
 
-        window = box(x_min, y_min, x_max, y_max)
-        window_buf = window.buffer(edge_length / 20)
-        final_window = window_buf.envelope
-        bbox_x_min, bbox_y_min, bbox_x_max, bbox_y_max = final_window.bounds
+        if feature_polygon.geom_type == 'Point':
+            vector_radius = 5
+            bbox_x_min, bbox_x_max = x_min - 0.002, x_max + 0.002
+            bbox_y_min, bbox_y_max = y_min - 0.0015, y_max + 0.0015
+            map_request = args.req.format(args.acc, args.pw, picture_width, picture_height,
+                                          str(bbox_x_min), str(bbox_y_min), str(bbox_x_max), str(bbox_y_max)
+                                          )
 
-        map_request = args.req.format(args.acc, args.pw, picture_width, picture_height,
-                                      str(bbox_x_min), str(bbox_y_min), str(bbox_x_max), str(bbox_y_max)
-                                      )
+            image_contents = urlopen_with_retry(map_request).read()
+            image = Image.open(StringIO(image_contents))
 
-        image_contents = urlopen_with_retry(map_request.format(final_window.bounds)).read()
-        image = Image.open(StringIO(image_contents))
+            draw = ImageDraw.Draw(image)
+            pixel_width = (bbox_x_max - bbox_x_min) / picture_width
+            pixel_height = (bbox_y_min - bbox_y_max) / picture_height
 
-        draw = ImageDraw.Draw(image)
+            xy_transform = ((x_min - bbox_x_min) / pixel_width, (y_min - bbox_y_max) / pixel_height)
 
-        pixel_width = (bbox_x_max - bbox_x_min) / picture_width
-        pixel_height = (bbox_y_min - bbox_y_max) / picture_height
-
-        if feature_polygon.geom_type == 'MultiPolygon':
-
-            for part_polygon in feature_polygon.geoms:
-
-                polygon_points = list(part_polygon.boundary.coords)
-                polygon_points_transform = list()
-                for point in polygon_points:
-                    polygon_points_transform.append(
-                        ((point[0] - bbox_x_min) / pixel_width, (point[1] - bbox_y_max) / pixel_height))
-
-                #  No polygon.
-                draw.line(polygon_points_transform, fill=line_color, width=line_width)
-                for point in polygon_points_transform:
-                    draw.ellipse((point[0] - vector_radius, point[1] - vector_radius, point[0] + vector_radius,
-                                  point[1] + vector_radius), fill=line_color)
+            draw.ellipse(
+                (xy_transform[0] - vector_radius, xy_transform[1] - vector_radius, xy_transform[0] + vector_radius,
+                 xy_transform[1] + vector_radius), fill=line_color, width=line_width + 5)
         else:
-            if len(list(feature_polygon.interiors)) == 0:
+            window = box(x_min, y_min, x_max, y_max)
+            window_buf = window.buffer(edge_length / 4)
+            final_window = window_buf.envelope
+            bbox_x_min, bbox_y_min, bbox_x_max, bbox_y_max = final_window.bounds
 
-                polygon_points = list(feature_polygon.boundary.coords)
-                polygon_points_transform = list()
-                for point in polygon_points:
-                    polygon_points_transform.append(
-                        ((point[0] - bbox_x_min) / pixel_width, (point[1] - bbox_y_max) / pixel_height))
+            map_request = args.req.format(args.acc, args.pw, picture_width, picture_height,
+                                          str(bbox_x_min), str(bbox_y_min), str(bbox_x_max), str(bbox_y_max)
+                                          )
 
-                draw.polygon(polygon_points_transform, outline=line_color)
-                draw.line(polygon_points_transform, fill=line_color, width=line_width)
-                for point in polygon_points_transform:
-                    draw.ellipse((point[0] - vector_radius, point[1] - vector_radius, point[0] + vector_radius,
-                                  point[1] + vector_radius), fill=line_color)
+            image_contents = urlopen_with_retry(map_request.format(final_window.bounds)).read()
+            image = Image.open(StringIO(image_contents))
 
+            draw = ImageDraw.Draw(image)
+
+            pixel_width = (bbox_x_max - bbox_x_min) / picture_width
+            pixel_height = (bbox_y_min - bbox_y_max) / picture_height
+
+            if feature_polygon.geom_type == 'MultiPolygon':
+
+                for part_polygon in feature_polygon.geoms:
+
+                    polygon_points = list(part_polygon.boundary.coords)
+                    polygon_points_transform = list()
+                    for point in polygon_points:
+                        polygon_points_transform.append(
+                            ((point[0] - bbox_x_min) / pixel_width, (point[1] - bbox_y_max) / pixel_height))
+
+                    #  No polygon.
+                    draw.line(polygon_points_transform, fill=line_color, width=line_width)
+                    for point in polygon_points_transform:
+                        draw.ellipse((point[0] - vector_radius, point[1] - vector_radius, point[0] + vector_radius,
+                                      point[1] + vector_radius), fill=line_color)
             else:
+                if len(list(feature_polygon.interiors)) == 0:
 
-                polygons_set = list(feature_polygon.interiors)
-                polygons_set.append(feature_polygon.exterior)
-
-                for polygon in polygons_set:
-
-                    polygon_points = list(polygon.coords)
+                    polygon_points = list(feature_polygon.boundary.coords)
                     polygon_points_transform = list()
                     for point in polygon_points:
                         polygon_points_transform.append(
@@ -117,12 +119,35 @@ def main(args):
                     for point in polygon_points_transform:
                         draw.ellipse((point[0] - vector_radius, point[1] - vector_radius, point[0] + vector_radius,
                                       point[1] + vector_radius), fill=line_color)
+
+                else:
+
+                    polygons_set = list(feature_polygon.interiors)
+                    polygons_set.append(feature_polygon.exterior)
+
+                    for polygon in polygons_set:
+
+                        polygon_points = list(polygon.coords)
+                        polygon_points_transform = list()
+                        for point in polygon_points:
+                            polygon_points_transform.append(
+                                ((point[0] - bbox_x_min) / pixel_width, (point[1] - bbox_y_max) / pixel_height))
+
+                        draw.polygon(polygon_points_transform, outline=line_color)
+                        draw.line(polygon_points_transform, fill=line_color, width=line_width)
+                        for point in polygon_points_transform:
+                            draw.ellipse((point[0] - vector_radius, point[1] - vector_radius, point[0] + vector_radius,
+                                          point[1] + vector_radius), fill=line_color)
         if args.t != '':
             time_request = args.t.format(str(feature_polygon.envelope.centroid.y),
                                          str(feature_polygon.envelope.centroid.x))
             time_contents = urlopen_with_retry(time_request).read()
             draw.text((0.36 * picture_width, 0.94 * picture_height), time_contents, font=font)
-        image.save(path.join(export_dir, '{:04d}.png'.format(i)))
+        if int(args.n) == 1:
+            number = feature.GetFieldAsInteger(args.nf)
+            image.save(path.join(export_dir, '{:04d}.png'.format(number)))
+        else:
+            image.save(path.join(export_dir, '{:04d}.png'.format(i)))
 
 
 def retry(ExceptionToCheck, tries=4, delay=3, backoff=2, logger=None):
@@ -201,6 +226,12 @@ if __name__ == '__main__':
 
     parser.add_argument('--t', action='store', default='',
                         help='Time stamp')
+
+    parser.add_argument('--n', action='store', default=0,
+                        help='Image name flag')
+    parser.add_argument('--nf', action='store', default='',
+                        help='Image name filed')
+
     parser.add_argument('--f', action='store', default="C:\Windows\Fonts\Calibri.ttf",
                         help='Font of time stamp')
     parser.add_argument('--fs', action='store', default=24,
