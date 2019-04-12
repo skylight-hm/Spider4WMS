@@ -56,8 +56,9 @@ def main(args):
             vector_radius = 5
             bbox_x_min, bbox_x_max = x_min - 0.002, x_max + 0.002
             bbox_y_min, bbox_y_max = y_min - 0.0015, y_max + 0.0015
-            map_request = args.req.format(args.acc, args.pw, picture_width, picture_height,
-                                          str(bbox_x_min), str(bbox_y_min), str(bbox_x_max), str(bbox_y_max)
+            map_request = args.req.format(args.lay,
+                                          str(bbox_x_min), str(bbox_y_min), str(bbox_x_max), str(bbox_y_max),
+                                          picture_width, picture_height
                                           )
 
             image_contents = urlopen_with_retry(map_request).read()
@@ -78,8 +79,9 @@ def main(args):
             final_window = window_buf.envelope
             bbox_x_min, bbox_y_min, bbox_x_max, bbox_y_max = final_window.bounds
 
-            map_request = args.req.format(args.acc, args.pw, picture_width, picture_height,
-                                          str(bbox_x_min), str(bbox_y_min), str(bbox_x_max), str(bbox_y_max)
+            map_request = args.req.format(args.lay,
+                                          str(bbox_x_min), str(bbox_y_min), str(bbox_x_max), str(bbox_y_max),
+                                          picture_width, picture_height
                                           )
 
             image_contents = urlopen_with_retry(map_request.format(final_window.bounds)).read()
@@ -144,8 +146,8 @@ def main(args):
             time_contents = urlopen_with_retry(time_request).read()
             draw.text((0.36 * picture_width, 0.94 * picture_height), time_contents, font=font)
         if int(args.n) == 1:
-            number = feature.GetFieldAsInteger(args.nf)
-            image.save(path.join(export_dir, '{:04d}.png'.format(number)))
+            string = feature.GetFieldAsString(args.nf)
+            image.save(path.join(export_dir, '{}_before.png'.format(string)))
         else:
             image.save(path.join(export_dir, '{:04d}.png'.format(i)))
 
@@ -210,9 +212,12 @@ if __name__ == '__main__':
     parser.add_argument('out', metavar='destination directory', type=str,
                         help='Destination directory to store pictures.')
 
-    parser.add_argument('acc', metavar='account', type=str, default='',
+    parser.add_argument('lay', metavar='layer', type=str, default='WGS84',
+                        help='WMS Layer')
+
+    parser.add_argument('acc', metavar='account', type=str, default='admin',
                         help='Account')
-    parser.add_argument('pw', metavar='password', type=str, default='',
+    parser.add_argument('pw', metavar='password', type=str, default='admin',
                         help='Password')
 
     # optional parameters
