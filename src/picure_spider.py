@@ -9,6 +9,7 @@ from PIL import Image, ImageDraw, ImageFont
 from shapely.geometry import box
 from os import path, makedirs
 from StringIO import StringIO
+from tqdm import tqdm
 
 
 def main(args):
@@ -32,7 +33,7 @@ def main(args):
     font = ImageFont.truetype(args.f, args.fs, index=0)
 
     layer = ds.GetLayer(0)
-    for i in range(layer.GetFeatureCount()):
+    for i in tqdm(range(layer.GetFeatureCount())):
 
         feature = layer.GetFeature(i)
         feature_geom = feature.GetGeometryRef()
@@ -147,7 +148,7 @@ def main(args):
             draw.text((0.36 * picture_width, 0.94 * picture_height), time_contents, font=font)
         if int(args.n) == 1:
             string = feature.GetFieldAsString(args.nf)
-            image.save(path.join(export_dir, '{}_before.png'.format(string)))
+            image.save(path.join(export_dir, '{}.png'.format(string)))
         else:
             image.save(path.join(export_dir, '{:04d}.png'.format(i)))
 
